@@ -1,0 +1,27 @@
+o test_out/join_test1.tree
+i 0 zero
+i 18 eighteen
+i 17 seventeen
+i 100 hunnit
+i 50 fifty
+i 31 thirty-one
+i 13 thirteen
+c
+
+o test_out/join_test2.tree
+i 11 ship-ill
+i 13 ship-sam
+i 100 baek
+i 10 ship
+i 1 ill
+i 0 BBang
+c
+
+j test_out/join_test1.tree test_out/join_test2.tree test_out/join_test_out.txt
+
+# join이 완료되었습니다. test_out/join_test_out.txt를 확인해주세요.
+# 결과는 다음과 같이 나와야 합니다. (열 순서는 상관 없습니다.)
+# 
+# (0, zero, BBang)
+# (13, thirteen, ship-sam)
+# (100, hunnit, baek)

@@ -1,0 +1,12 @@
+j test_trees/lg_join_test1.tree test_trees/lg_join_test2.tree test_out/lg_join_test_out.txt
+
+# join이 완료되었습니다. test_out/lg_join_test_out.txt를 확인해주세요.
+# 결과는 다음과 같이 나와야 합니다. (열 순서는 상관 없습니다.)
+# 
+# (3, AAA...A_3, BBB...B_3)
+# (5, AAA...A_5, BBB...B_5)
+# (7, AAA...A_7, BBB...B_7)
+# (9, AAA...A_9, BBB...B_9)
+# (11, AAA...A_11, BBB...B_11)
+# ...
+# (1048193, AAA...A_1048193, BBB...B_1048193)
