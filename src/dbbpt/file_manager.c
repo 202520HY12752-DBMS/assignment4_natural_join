@@ -41,102 +41,104 @@ int open_or_create_tree(const char *file_path, int leaf_order, int internal_orde
 }
 
 void load_header_page(int fd, header_page* dest) {
-	off_t cur_offset = 0;
-	if (pread(fd, &(dest->free_pgn), 8, cur_offset) == -1) exit_with_err_msg("Error on loading free page number at header page.");
-	cur_offset += 8;
-
-	if (pread(fd, &(dest->root_pgn), 8, cur_offset) == -1) exit_with_err_msg("Error on loading root page number at header page.");
-	cur_offset += 8;
-
-	if (pread(fd, &(dest->num_pages), 8, cur_offset) == -1) exit_with_err_msg("Error on loading number of pages at header page.");
-	cur_offset += 8;
-
-	if (pread(fd, &(dest->leaf_order), 4, cur_offset) == -1) exit_with_err_msg("Error on loading leaf order at header page.");
-	cur_offset += 4;
-
-	if (pread(fd, &(dest->internal_order), 4, cur_offset) == -1) exit_with_err_msg("Error on loading internal order at header page.");
-	cur_offset += 4;
+	char buffer[PAGE_SIZE];
+	if (pread(fd, buffer, PAGE_SIZE, 0) == -1) exit_with_err_msg("Error on loading header page.");
+	
+	int offset_on_pg = 0;
+	memcpy(&(dest->free_pgn), buffer + offset_on_pg, 8);
+	offset_on_pg += 8;
+	memcpy(&(dest->root_pgn), buffer + offset_on_pg, 8);
+	offset_on_pg += 8;
+	memcpy(&(dest->num_pages), buffer + offset_on_pg, 8);
+	offset_on_pg += 8;
+	memcpy(&(dest->leaf_order), buffer + offset_on_pg, 4);
+	offset_on_pg += 4;
+	memcpy(&(dest->internal_order), buffer + offset_on_pg, 4);
+	offset_on_pg += 4;
 }
 
 void write_header_page(int fd, const header_page* src) {
-	off_t cur_offset = 0;
-	if (pwrite(fd, &(src->free_pgn), 8, cur_offset) < 8) exit_with_err_msg("Error on writing free page number at header page.");
-	cur_offset += 8;
+	char buffer[PAGE_SIZE];
+	memset(buffer, 0, PAGE_SIZE);
 
-	if (pwrite(fd, &(src->root_pgn), 8, cur_offset) < 8) exit_with_err_msg("Error on writing root page number at header page.");
-	cur_offset += 8;
+	int offset_on_pg = 0;
+	memcpy(buffer + offset_on_pg, &(src->free_pgn), 8);
+	offset_on_pg += 8;
+	memcpy(buffer + offset_on_pg, &(src->root_pgn), 8);
+	offset_on_pg += 8;
+	memcpy(buffer + offset_on_pg, &(src->num_pages), 8);
+	offset_on_pg += 8;
+	memcpy(buffer + offset_on_pg, &(src->leaf_order), 4);
+	offset_on_pg += 4;
+	memcpy(buffer + offset_on_pg, &(src->internal_order), 4);
+	offset_on_pg += 4;
 
-	if (pwrite(fd, &(src->num_pages), 8, cur_offset) < 8) exit_with_err_msg("Error on writing number of pages at header page.");
-	cur_offset += 8;
-
-	if (pwrite(fd, &(src->leaf_order), 4, cur_offset) < 4) exit_with_err_msg("Error on writing leaf order at header page.");
-	cur_offset += 4;
-
-	if (pwrite(fd, &(src->internal_order), 4, cur_offset) < 4) exit_with_err_msg("Error on writing internal order at header page.");
-	cur_offset += 4;
+	if (pwrite(fd, buffer, PAGE_SIZE, 0) < PAGE_SIZE) exit_with_err_msg("Error on writing header page.");
 }
 
 void load_page(int fd, int64_t pgn, page* dest) {
-	off_t cur_offset = pgn * PAGE_SIZE;
+	char buffer[PAGE_SIZE];
+	if (pread(fd, buffer, PAGE_SIZE, pgn * PAGE_SIZE) == -1) exit_with_err_msg("Error on loading page.");
+	int offset_on_pg = 0;
+	
 	dest->pgn = pgn;
-
-	if (pread(fd, &(dest->parent_pgn), 8, cur_offset) == -1) exit_with_err_msg("Error on loading parent page number.");
-	cur_offset += 8;
-
-	if (pread(fd, &(dest->is_leaf), 4, cur_offset) == -1) exit_with_err_msg("Error on loading is_leaf flag.");
-	cur_offset += 4;
-
-	if (pread(fd, &(dest->num_keys), 4, cur_offset) == -1) exit_with_err_msg("Error on loading num_keys.");
-	cur_offset += (4 + 104); // num_keys size(4) + reserved size(104)
+	memcpy(&(dest->parent_pgn), buffer + offset_on_pg, 8);
+	offset_on_pg += 8;
+	memcpy(&(dest->is_leaf), buffer + offset_on_pg, 4);
+	offset_on_pg += 4;
+	memcpy(&(dest->num_keys), buffer + offset_on_pg, 4);
+	offset_on_pg += (4 + 104); // num_keys size(4) + reserved size(104)
 
 	int64_t last_8byte_of_header;
-	if (pread(fd, &(last_8byte_of_header), 8, cur_offset) == -1) exit_with_err_msg("Error on loading last 8 bytes of header section.");
-	cur_offset += 8;
+	memcpy(&last_8byte_of_header, buffer + offset_on_pg, 8);
+	offset_on_pg += 8;
+
 	if (dest->is_leaf) dest->right_sibling_pgn = last_8byte_of_header;
-    else dest->child_pgns[dest->num_keys] = last_8byte_of_header;
+	else dest->child_pgns[dest->num_keys] = last_8byte_of_header;
 
 	for (int i = 0; i < dest->num_keys; i++) {
-		if (pread(fd, &(dest->keys[i]), 8, cur_offset) == -1) exit_with_err_msg("Error on loading keys.");
-		cur_offset += 8;
+		memcpy(&(dest->keys[i]), buffer + offset_on_pg, 8);
+		offset_on_pg += 8;
 		if (dest->is_leaf) {
-			if (pread(fd, dest->records[i].value, 120, cur_offset) == -1) exit_with_err_msg("Error on loading leaf record value.");
-			cur_offset += 120;
+			memcpy(dest->records[i].value, buffer + offset_on_pg, 120);
+			offset_on_pg += 120;
 		} else {
-			if (pread(fd, &(dest->child_pgns[i]), 8, cur_offset) == -1) exit_with_err_msg("Error on loading child page number.");
-			cur_offset += 8;
+			memcpy(&(dest->child_pgns[i]), buffer + offset_on_pg, 8);
+			offset_on_pg += 8;
 		}
 	}
 }
 
 void write_page(int fd, const page* src) {
-	off_t cur_offset = src->pgn * PAGE_SIZE;
+	char buffer[PAGE_SIZE];
+	memset(buffer, 0, PAGE_SIZE);
 
-	if (pwrite(fd, &(src->parent_pgn), 8, cur_offset) < 8) exit_with_err_msg("Error on writing parent page number.");
-	cur_offset += 8;
-
-	if (pwrite(fd, &(src->is_leaf), 4, cur_offset) < 4) exit_with_err_msg("Error on writing is_leaf flag.");
-	cur_offset += 4;
-
-	if (pwrite(fd, &(src->num_keys), 4, cur_offset) < 4) exit_with_err_msg("Error on writing num_keys.");
-	cur_offset += (4 + 104); // num_keys size(4) + reserved size(104)
+	int offset_on_pg = 0;
+	memcpy(buffer + offset_on_pg, &(src->parent_pgn), 8);
+	offset_on_pg += 8;
+	memcpy(buffer + offset_on_pg, &(src->is_leaf), 4);
+	offset_on_pg += 4;
+	memcpy(buffer + offset_on_pg, &(src->num_keys), 4);
+	offset_on_pg += (4 + 104); // num_keys size(4) + reserved size(104)
 
 	int64_t last_8byte_of_header;
 	if (src->is_leaf) last_8byte_of_header = src->right_sibling_pgn;
 	else last_8byte_of_header = src->child_pgns[src->num_keys];
-	if (pwrite(fd, &(last_8byte_of_header), 8, cur_offset) < 8) exit_with_err_msg("Error on writing last 8 bytes of header section.");
-	cur_offset += 8;
+	memcpy(buffer + offset_on_pg, &last_8byte_of_header, 8);
+	offset_on_pg += 8;
 
 	for (int i = 0; i < src->num_keys; i++) {
-		if (pwrite(fd, &(src->keys[i]), 8, cur_offset) < 8) exit_with_err_msg("Error on writing key.");
-		cur_offset += 8;
+		memcpy(buffer + offset_on_pg, &(src->keys[i]), 8);
+		offset_on_pg += 8;
 		if (src->is_leaf) {
-			if (pwrite(fd, src->records[i].value, 120, cur_offset) < 120) exit_with_err_msg("Error on writing leaf record value.");
-			cur_offset += 120;
+			memcpy(buffer + offset_on_pg, src->records[i].value, 120);
+			offset_on_pg += 120;
 		} else {
-			if (pwrite(fd, &(src->child_pgns[i]), 8, cur_offset) < 8) exit_with_err_msg("Error on writing internal record child page number.");
-			cur_offset += 8;
+			memcpy(buffer + offset_on_pg, &(src->child_pgns[i]), 8);
+			offset_on_pg += 8;
 		}
 	}
+	if (pwrite(fd, buffer, PAGE_SIZE, src->pgn * PAGE_SIZE) < PAGE_SIZE) exit_with_err_msg("Error on writing page.");
 }
 
 page *alloc_page(int fd) {
